@@ -4,3 +4,5 @@ Chat History:
 [anz] hello, word
 gojo telah bergabung ke chatroom.
 gojo: ping 1
+cc: halo
+cc: yippiy

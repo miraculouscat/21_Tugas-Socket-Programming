@@ -1,98 +1,116 @@
 import socket
 import threading
-import json
+import queue
+import hashlib
 import os
 
-clients = {}
+# Store valid users for authentication
+valid_users = {"user1": "password1", "user2": "password2"}
 
-# Function to save chat history to a file
-def save_chat_history(message):
-    with open("chat_history.txt", "a") as file:
+# Store clients and their usernames
+clients = {}
+recvPackets = queue.Queue()
+
+# Caesar Cipher for basic encryption
+def caesar_cipher_encrypt(text, shift=3):
+    encrypted = ""
+    for char in text:
+        if char.isalpha():
+            shift_by = shift % 26
+            encrypted += chr((ord(char) + shift_by - 65) % 26 + 65)
+        else:
+            encrypted += char
+    return encrypted
+
+def caesar_cipher_decrypt(text, shift=3):
+    return caesar_cipher_encrypt(text, -shift)
+
+# Checksum generation for integrity verification
+def generate_checksum(message):
+    return hashlib.sha256(message.encode('utf-8')).hexdigest()
+
+def verify_checksum(message, received_checksum):
+    return generate_checksum(message) == received_checksum
+
+# Save message to file
+def save_message_to_file(message, filename="chat_history.txt"):
+    with open(filename, "a") as file:
         file.write(message + "\n")
 
-# Function to load users from users.json
-def load_users():
-    if not os.path.exists("users.json"):
-        with open("users.json", "w") as file:
-            json.dump({}, file)
-    with open("users.json", "r") as file:
-        return json.load(file)
+def load_chat_history(filename="chat_history.txt"):
+    if os.path.exists(filename):
+        with open(filename, "r") as file:
+            return file.readlines()
+    return []
 
-# Function to handle messages received from the client
-def handle_messages():
+# Authenticate users
+def authenticate(username, password):
+    return valid_users.get(username) == password
+
+# Function to receive data
+def recv_data(sock):
     while True:
-        try:
-            message, client_address = server_socket.recvfrom(1024)
-            decoded_message = message.decode('utf-8')
-            split_message = decoded_message.split(' ', 2)
-            print(f"Received message: {decoded_message} from {client_address}")
+        data, addr = sock.recvfrom(2048)
+        recvPackets.put((data, addr))
 
-            # Process login or register
-            if split_message[0] == "REGISTER":
-                username = split_message[1]
-                password = split_message[2]
-                register_user(username, password, client_address)
-            elif split_message[0] == "LOGIN":
-                username = split_message[1]
-                password = split_message[2]
-                login_user(username, password, client_address)
-            elif split_message[0] == "MSG":
-                username = split_message[1]
-                user_message = split_message[2]
-                broadcast_message(f"{username}: {user_message}", client_address)
-        except Exception as e:
-            print(f"Error: {e}")
-            break
-
-# Function to send messages to all clients
-def broadcast_message(message, exclude_address=None):
-    for client, address in clients.items():
-        if address != exclude_address:
-            server_socket.sendto(message.encode('utf-8'), address)
-    save_chat_history(message)
-    print(f"Broadcasting message: {message}")
-
-# Function to log in user
-def login_user(username, password, client_address):
-    users = load_users()
+# Server function
+def run_server():
+    host = socket.gethostbyname(socket.gethostname())
+    port = 12345
+    print(f'Server hosting on IP -> {host}')
     
-    if username in users and users[username] == password:
-        clients[username] = client_address
-        server_socket.sendto(f"LOGGED_IN {username}".encode('utf-8'), client_address)
-        broadcast_message(f"{username} has joined the chatroom.", client_address)
-        # Send welcome message
-        server_socket.sendto("Welcome to the chatroom!".encode('utf-8'), client_address)
-    else:
-        server_socket.sendto("LOGIN_FAILED".encode('utf-8'), client_address)
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.bind((host, port))
 
-# Function to register user
-def register_user(username, password, client_address):
-    users = load_users()
+    print('Server running...')
+    threading.Thread(target=recv_data, args=(s,)).start()
 
-    if username in users:
-        server_socket.sendto(f"Username {username} is already registered.".encode('utf-8'), client_address)
-    else:
-        users[username] = password
-        with open("users.json", "w") as file:
-            json.dump(users, file)
-        server_socket.sendto(f"Registration successful for {username}".encode('utf-8'), client_address)
-
-def main():
-    server_ip = "0.0.0.0"  # Listen on all available interfaces
-    server_port = 12345
-    server_address = (server_ip, server_port)
-
-    global server_socket
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    server_socket.bind(server_address)
-
-    print(f"Server running on {server_ip}:{server_port}")
-    
-    threading.Thread(target=handle_messages, daemon=True).start()
-
-    # Keep server running
     while True:
-        pass
+        while not recvPackets.empty():
+            data, addr = recvPackets.get()
+            data = data.decode('utf-8')
 
-if __name__ == "__main__":
-    main()
+            # First message expected to be authentication
+            if addr not in clients:
+                try:
+                    username, password = data.split(',')
+                    if authenticate(username, password):
+                        clients[addr] = username
+                        print(f'Client {username} authenticated from {addr}')
+                        s.sendto("Authentication successful".encode('utf-8'), addr)
+                        for msg in load_chat_history():
+                            s.sendto(msg.encode('utf-8'), addr)  # Send chat history
+                    else:
+                        s.sendto("Authentication failed".encode('utf-8'), addr)
+                        print(f'Failed authentication attempt from {addr}')
+                except ValueError:
+                    print(f'Invalid authentication attempt from {addr}')
+                continue
+
+            # Message received from authenticated client
+            username = clients[addr]
+            print(f"Received from {username} -> {data}")
+            
+            # Verify checksum
+            try:
+                msg, checksum = data.rsplit(',', 1)
+                if not verify_checksum(msg, checksum):
+                    print(f"Message integrity check failed from {username}")
+                    continue
+            except ValueError:
+                print(f"Malformed message from {username}")
+                continue
+
+            # Save message to file
+            save_message_to_file(data)
+
+            # Forward message to all other clients
+            for client_addr in clients:
+                if client_addr != addr:
+                    encrypted_msg = caesar_cipher_encrypt(f"[{username}] -> {msg}")
+                    s.sendto(f"{encrypted_msg},{checksum}".encode('utf-8'), client_addr)
+
+    s.close()
+
+if __name__ == '__main__':
+    run_server()

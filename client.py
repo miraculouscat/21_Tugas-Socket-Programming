@@ -1,64 +1,88 @@
 import socket
 import threading
+import hashlib
+import os
 
-def listen_for_messages(client_socket):
+# Fungsi untuk enkripsi Caesar Cipher
+def caesar_cipher_encrypt(text, shift=3):
+    encrypted = ""
+    for char in text:
+        if char.isalpha():
+            shift_by = shift % 26
+            encrypted += chr((ord(char) + shift_by - 65) % 26 + 65)
+        else:
+            encrypted += char
+    return encrypted
+
+# Fungsi untuk dekripsi Caesar Cipher
+def caesar_cipher_decrypt(text, shift=3):
+    decrypted = ""
+    for char in text:
+        if char.isalpha():
+            shift_by = shift % 26
+            decrypted += chr((ord(char) - shift_by - 65) % 26 + 65)
+        else:
+            decrypted += char
+    return decrypted
+
+# Fungsi untuk menghitung checksum SHA256 untuk pesan
+def generate_checksum(message):
+    return hashlib.sha256(message.encode('utf-8')).hexdigest()
+
+# Fungsi untuk menerima pesan dari server
+def receive_data(sock):
     while True:
         try:
-            response, _ = client_socket.recvfrom(1024)
-            print("\n" + response.decode('utf-8'))  # Print incoming messages
-        except Exception as e:
-            print(f"Error receiving message: {e}")
-            break
+            data, addr = sock.recvfrom(2048)  # Menerima data dari server
+            decrypted_msg, checksum = data.decode('utf-8').rsplit(',', 1)
+            decrypted_msg = caesar_cipher_decrypt(decrypted_msg)
+            print(f"Received -> {decrypted_msg}")
+        except:
+            pass
 
-def main():
-    # Ask user for server IP and port
-    server_ip = input("Enter server IP address: ")  # Use the actual public IP of the server
-    server_port = int(input("Enter server port: "))
+# Fungsi utama untuk client
+def run_client(server_ip):
+    host = socket.gethostbyname(socket.gethostname())  # IP client
+    port = int(input("Enter client port number (between 6000 and 10000): "))  # Port client
 
-    # Server address
-    server_address = (server_ip, server_port)
+    # Menghubungkan client ke server
+    server = (server_ip, 5000)  # Alamat server dan portnya
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.bind((host, port))
 
-    # Create UDP socket
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # Meminta username dan password dari user
+    username = input('Enter your username: ')
+    password = input('Enter your password: ')
+    s.sendto(f"{username},{password}".encode('utf-8'), server)  # Mengirim username dan password ke server
 
-    # Command input
-    command = input("Enter command (REGISTER / LOGIN): ").upper()
-    username = input("Enter username: ")
-    password = input("Enter password: ")
-
-    if command == "REGISTER":
-        message = f"REGISTER {username} {password}"
-    elif command == "LOGIN":
-        message = f"LOGIN {username} {password}"
+    # Menunggu respons autentikasi dari server
+    response, _ = s.recvfrom(1024)
+    response = response.decode('utf-8')
+    if "Authentication successful" in response:
+        print("Successfully authenticated. Welcome to the chatroom!")
     else:
-        print("Invalid command.")
+        print("Authentication failed. Exiting.")
+        s.close()
         return
 
-    # Send message to server
-    print(f"Sending {command.lower()} request: {message}")
-    client_socket.sendto(message.encode('utf-8'), server_address)
+    # Memulai thread untuk menerima pesan
+    threading.Thread(target=receive_data, args=(s,)).start()
 
-    # Receive response from server
-    try:
-        response, _ = client_socket.recvfrom(1024)
-        print("Server response:", response.decode('utf-8'))
-    except Exception as e:
-        print(f"Error receiving server response: {e}")
-        return
-
-    # Listen for incoming messages in a separate thread
-    threading.Thread(target=listen_for_messages, args=(client_socket,), daemon=True).start()
-
-    # Allow the user to send messages
+    # Loop utama untuk mengirim pesan
     while True:
-        user_message = input("Enter message to send (or type 'exit' to quit): ")
-        if user_message.lower() == 'exit':
+        msg = input()  # Input pesan dari pengguna
+        if msg == 'exit':  # Jika pengguna mengetik 'exit', keluar dari chat
+            print("Exiting the chatroom.")
             break
-        if username:  # Ensure the user is logged in
-            full_message = f"MSG {username} {user_message}"
-            client_socket.sendto(full_message.encode('utf-8'), server_address)
 
-    client_socket.close()
+        # Menghitung checksum dan mengenkripsi pesan sebelum dikirim ke server
+        checksum = generate_checksum(msg)
+        encrypted_msg = caesar_cipher_encrypt(msg)
+        s.sendto(f"{encrypted_msg},{checksum}".encode('utf-8'), server)
 
-if __name__ == "__main__":
-    main()
+    s.close()
+    os._exit(1)  # Menutup client
+
+if __name__ == '__main__':
+    server_ip = input("Enter server IP address: ")  # Meminta alamat IP server dari pengguna
+    run_client(server_ip)
