@@ -1,55 +1,62 @@
 import socket
 import threading
 
-# Fungsi untuk menerima pesan dari server
-def receive_messages(client_socket):
+def listen_for_messages(client_socket):
     while True:
         try:
-            message, _ = client_socket.recvfrom(1024)
-            print(message.decode('utf-8'))
+            response, _ = client_socket.recvfrom(1024)
+            print("\n" + response.decode('utf-8'))  # Print incoming messages
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error receiving message: {e}")
             break
 
 def main():
-    # Meminta pengguna memasukkan alamat server dan port
-    server_ip = input("Masukkan alamat IP server: ")
-    server_port = int(input("Masukkan port server: "))
+    # Ask user for server IP and port
+    server_ip = input("Enter server IP address: ")  # Use the actual public IP of the server
+    server_port = int(input("Enter server port: "))
+
+    # Server address
     server_address = (server_ip, server_port)
-    
+
+    # Create UDP socket
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    # Login atau registrasi
+    # Command input
+    command = input("Enter command (REGISTER / LOGIN): ").upper()
+    username = input("Enter username: ")
+    password = input("Enter password: ")
+
+    if command == "REGISTER":
+        message = f"REGISTER {username} {password}"
+    elif command == "LOGIN":
+        message = f"LOGIN {username} {password}"
+    else:
+        print("Invalid command.")
+        return
+
+    # Send message to server
+    print(f"Sending {command.lower()} request: {message}")
+    client_socket.sendto(message.encode('utf-8'), server_address)
+
+    # Receive response from server
+    try:
+        response, _ = client_socket.recvfrom(1024)
+        print("Server response:", response.decode('utf-8'))
+    except Exception as e:
+        print(f"Error receiving server response: {e}")
+        return
+
+    # Listen for incoming messages in a separate thread
+    threading.Thread(target=listen_for_messages, args=(client_socket,), daemon=True).start()
+
+    # Allow the user to send messages
     while True:
-        command = input("Masukkan perintah (REGISTER / LOGIN): ").strip().upper()
-
-        if command == "REGISTER":
-            username = input("Masukkan username: ")
-            password = input("Masukkan password: ")
-            client_socket.sendto(f"REGISTER {username} {password}".encode('utf-8'), server_address)
-            response, _ = client_socket.recvfrom(1024)
-            print(response.decode('utf-8'))
-
-        elif command == "LOGIN":
-            username = input("Masukkan username: ")
-            password = input("Masukkan password: ")
-            client_socket.sendto(f"LOGIN {username} {password}".encode('utf-8'), server_address)
-            response, _ = client_socket.recvfrom(1024)
-            print(response.decode('utf-8'))
-            if response.decode('utf-8').startswith("LOGGED_IN"):
-                break
-        else:
-            print("Perintah tidak valid. Silakan coba lagi.")
-
-    # Mulai menerima pesan di thread terpisah
-    threading.Thread(target=receive_messages, args=(client_socket,), daemon=True).start()
-
-    # Mengirim pesan ke server
-    while True:
-        message = input()
-        if message.lower() == "exit":
+        user_message = input("Enter message to send (or type 'exit' to quit): ")
+        if user_message.lower() == 'exit':
             break
-        client_socket.sendto(f"MSG {username} {message}".encode('utf-8'), server_address)
+        if username:  # Ensure the user is logged in
+            full_message = f"MSG {username} {user_message}"
+            client_socket.sendto(full_message.encode('utf-8'), server_address)
 
     client_socket.close()
 
