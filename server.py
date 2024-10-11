@@ -55,7 +55,7 @@ def recv_data(sock):
 
 # Server function
 def run_server():
-    host = socket.gethostbyname(socket.gethostname())
+    host = "0.0.0.0"
     port = 12345
     print(f'Server hosting on IP -> {host}')
     
