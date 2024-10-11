@@ -77,7 +77,7 @@ def register_user(username, password, server_socket, client_address):
         server_socket.sendto(f"Registrasi berhasil untuk {username}".encode('utf-8'), client_address)
 
 def main():
-    server_ip = socket.gethostbyname(socket.gethostname())  # Mengambil IP lokal server
+    server_ip = "167.205.0.226"  # Menggunakan IP publik
     server_port = 12345
     server_address = (server_ip, server_port)
 
@@ -87,7 +87,7 @@ def main():
 
     print(f"Server berjalan di {server_ip}:{server_port}")
     
-    threading.Thread(target=handle_messages, daemon=True, args=(server_socket,)).start()
+    threading.Thread(target=handle_messages, daemon=True).start()
 
     # Agar server tetap berjalan
     while True:
