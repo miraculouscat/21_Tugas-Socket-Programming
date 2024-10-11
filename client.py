@@ -1,88 +1,57 @@
 import socket
 import threading
-import hashlib
-import os
-
-# Fungsi untuk enkripsi Caesar Cipher
-def caesar_cipher_encrypt(text, shift=3):
-    encrypted = ""
-    for char in text:
-        if char.isalpha():
-            shift_by = shift % 26
-            encrypted += chr((ord(char) + shift_by - 65) % 26 + 65)
-        else:
-            encrypted += char
-    return encrypted
-
-# Fungsi untuk dekripsi Caesar Cipher
-def caesar_cipher_decrypt(text, shift=3):
-    decrypted = ""
-    for char in text:
-        if char.isalpha():
-            shift_by = shift % 26
-            decrypted += chr((ord(char) - shift_by - 65) % 26 + 65)
-        else:
-            decrypted += char
-    return decrypted
-
-# Fungsi untuk menghitung checksum SHA256 untuk pesan
-def generate_checksum(message):
-    return hashlib.sha256(message.encode('utf-8')).hexdigest()
 
 # Fungsi untuk menerima pesan dari server
-def receive_data(sock):
+def receive_messages(client_socket):
     while True:
         try:
-            data, addr = sock.recvfrom(2048)  # Menerima data dari server
-            decrypted_msg, checksum = data.decode('utf-8').rsplit(',', 1)
-            decrypted_msg = caesar_cipher_decrypt(decrypted_msg)
-            print(f"Received -> {decrypted_msg}")
-        except:
-            pass
-
-# Fungsi utama untuk client
-def run_client(server_ip):
-    host = socket.gethostbyname(socket.gethostname())  # IP client
-    port = int(input("Enter client port number (between 6000 and 10000): "))  # Port client
-
-    # Menghubungkan client ke server
-    server = (server_ip, 5000)  # Alamat server dan portnya
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.bind((host, port))
-
-    # Meminta username dan password dari user
-    username = input('Enter your username: ')
-    password = input('Enter your password: ')
-    s.sendto(f"{username},{password}".encode('utf-8'), server)  # Mengirim username dan password ke server
-
-    # Menunggu respons autentikasi dari server
-    response, _ = s.recvfrom(1024)
-    response = response.decode('utf-8')
-    if "Authentication successful" in response:
-        print("Successfully authenticated. Welcome to the chatroom!")
-    else:
-        print("Authentication failed. Exiting.")
-        s.close()
-        return
-
-    # Memulai thread untuk menerima pesan
-    threading.Thread(target=receive_data, args=(s,)).start()
-
-    # Loop utama untuk mengirim pesan
-    while True:
-        msg = input()  # Input pesan dari pengguna
-        if msg == 'exit':  # Jika pengguna mengetik 'exit', keluar dari chat
-            print("Exiting the chatroom.")
+            message, _ = client_socket.recvfrom(1024)
+            print(message.decode('utf-8'))
+        except Exception as e:
+            print(f"Error: {e}")
             break
 
-        # Menghitung checksum dan mengenkripsi pesan sebelum dikirim ke server
-        checksum = generate_checksum(msg)
-        encrypted_msg = caesar_cipher_encrypt(msg)
-        s.sendto(f"{encrypted_msg},{checksum}".encode('utf-8'), server)
+def main():
+    # Meminta pengguna memasukkan alamat server dan port
+    server_ip = input("Masukkan alamat IP server: ")
+    server_port = int(input("Masukkan port server: "))
+    server_address = (server_ip, server_port)
+    
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    s.close()
-    os._exit(1)  # Menutup client
+    # Login atau registrasi
+    while True:
+        command = input("Masukkan perintah (REGISTER / LOGIN): ").strip().upper()
 
-if __name__ == '__main__':
-    server_ip = input("Enter server IP address: ")  # Meminta alamat IP server dari pengguna
-    run_client(server_ip)
+        if command == "REGISTER":
+            username = input("Masukkan username: ")
+            password = input("Masukkan password: ")
+            client_socket.sendto(f"REGISTER {username} {password}".encode('utf-8'), server_address)
+            response, _ = client_socket.recvfrom(1024)
+            print(response.decode('utf-8'))
+
+        elif command == "LOGIN":
+            username = input("Masukkan username: ")
+            password = input("Masukkan password: ")
+            client_socket.sendto(f"LOGIN {username} {password}".encode('utf-8'), server_address)
+            response, _ = client_socket.recvfrom(1024)
+            print(response.decode('utf-8'))
+            if response.decode('utf-8').startswith("LOGGED_IN"):
+                break
+        else:
+            print("Perintah tidak valid. Silakan coba lagi.")
+
+    # Mulai menerima pesan di thread terpisah
+    threading.Thread(target=receive_messages, args=(client_socket,), daemon=True).start()
+
+    # Mengirim pesan ke server
+    while True:
+        message = input()
+        if message.lower() == "exit":
+            break
+        client_socket.sendto(f"MSG {username} {message}".encode('utf-8'), server_address)
+
+    client_socket.close()
+
+if __name__ == "__main__":
+    main()
