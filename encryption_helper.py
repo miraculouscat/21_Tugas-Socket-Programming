@@ -1,9 +1,13 @@
 class EncryptionHelper:
-    def __init__(self, key=65):  # Predefined encryption key (65)
-        self.key = key
+    def __init__(self, shift=3):
+        self.shift = shift
 
-    def xor_encrypt(self, message):
-        return ''.join([chr(ord(c) ^ self.key) for c in message])
+    def encrypt(self, text):
+        return ''.join([chr(((ord(char) - 65 + self.shift) % 26) + 65) if char.isupper() 
+                        else chr(((ord(char) - 97 + self.shift) % 26) + 97) if char.islower()
+                        else char for char in text])
 
-    def xor_decrypt(self, message):
-        return ''.join([chr(ord(c) ^ self.key) for c in message])
+    def decrypt(self, text):
+        return ''.join([chr(((ord(char) - 65 - self.shift) % 26) + 65) if char.isupper() 
+                        else chr(((ord(char) - 97 - self.shift) % 26) + 97) if char.islower()
+                        else char for char in text])
