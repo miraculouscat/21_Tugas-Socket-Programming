@@ -43,7 +43,6 @@ class ChatClient:
             decrypted_message = self.encryption_helper.decrypt(message.decode('utf-8'))
             print(f"[AUTH RESPONSE] {decrypted_message}")
 
-            # Check if authentication was successful based on the welcome message or registration success
             if "welcome" in decrypted_message.lower():
                 self.start_chat()  # Start chat after successful login
             elif "registration successful" in decrypted_message.lower():
@@ -108,8 +107,12 @@ class ChatClient:
                 message, _ = self.client_socket.recvfrom(1024)
                 if message:
                     encrypted_message = message.decode('utf-8')
-                    print(f"Received encrypted message: {encrypted_message}")
                     decrypted_message = self.encryption_helper.decrypt(encrypted_message)
+                    
+                    # Print the received message without interfering with the chat input
                     print(f"\n[NEW MESSAGE] {decrypted_message}")
+
+                    # Reprint the chat input prompt after the message is received
+                    print("[CHAT INPUT] Type a message: ", end="", flush=True)
             except Exception as e:
                 print(f"Error receiving message: {e}")
