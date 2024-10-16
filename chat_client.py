@@ -90,8 +90,10 @@ class ChatClient:
                     self.client_socket.close()
                     break
                 self.send_message(message)
+                self.save_to_history(f"Me: {message}")  # Save sent message to chat history
             except Exception as e:
                 print(f"[ERROR] Issue with input or message sending: {e}")
+
 
     def send_message(self, message):
         try:
@@ -111,8 +113,16 @@ class ChatClient:
                     
                     # Print the received message without interfering with the chat input
                     print(f"\n[NEW MESSAGE] {decrypted_message}")
+                    self.save_to_history(f"Other: {decrypted_message}")  # Save received message to chat history
 
                     # Reprint the chat input prompt after the message is received
                     print("[CHAT INPUT] Type a message: ", end="", flush=True)
             except Exception as e:
                 print(f"Error receiving message: {e}")
+                
+    def save_to_history(self, message):
+        try:
+            with open('chat_history.txt', 'a') as file:
+                file.write(message + '\n')
+        except Exception as e:
+            print(f"[ERROR] Failed to save message to chat history: {e}")
