@@ -1,2 +1,25 @@
 Me: asda
 Other: ccc: asdnal
+Me: halo
+Other: You need to login or register first.
+Me: oke
+Other: You need to login or register first.
+Me: hai
+Other: You need to login or register first.
+Me: halo
+Other: You need to login or register first.
+Me: hai
+Me: ah
+Other: ccc: ah
+Me: hai
+Other: cc: hai
+Other: cc: hai
+Me: hai
+Me: sdh
+Other: cc: sdh
+Me: halo
+Other: cc: halo
+Me: hai
+Other: ccc: hai
+Me: halo
+Other: cc: halo

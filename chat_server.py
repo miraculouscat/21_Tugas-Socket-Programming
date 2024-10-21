@@ -17,18 +17,21 @@ class ChatServer:
             message, client_address = self.server_socket.recvfrom(1024)
             threading.Thread(target=self.handle_client, args=(message, client_address)).start()
 
-    def handle_client(self, message, client_address):
+   def handle_client(self, message, client_address):
         decrypted_message = self.encryption_helper.decrypt(message.decode('utf-8'))
         print(f"[RECEIVED] {decrypted_message} from {client_address}")
 
+        # Check if the client is registered
         if decrypted_message.startswith("/register"):
             self.register_client(decrypted_message, client_address)
         elif decrypted_message.startswith("/login"):
             self.login_client(decrypted_message, client_address)
         else:
+            # Check if the client is logged in
             if client_address in self.clients:
                 self.broadcast_message(decrypted_message, client_address)
             else:
+                # Only send the login/register error if the client is trying to send a message
                 error_message = "You need to login or register first."
                 self.send_encrypted_message(error_message, client_address)
 
@@ -48,7 +51,7 @@ class ChatServer:
             if success:
                 self.clients[client_address] = username  # Store the client address and username
                 welcome_message = f"WELCOME: Welcome, {username}! You are now connected."
-                print(f"[DEBUG] Sending welcome message: {welcome_message}")  # Debugging
+                # print(f"[DEBUG] Sending welcome message: {welcome_message}")  # Debugging
                 self.send_encrypted_message(welcome_message, client_address)
             else:
                 self.send_encrypted_message(msg, client_address)
@@ -60,7 +63,7 @@ class ChatServer:
     def broadcast_message(self, message, sender_address):
             sender_username = self.clients[sender_address]
             formatted_message = f"{sender_username}: {message}"
-            print(f"[DEBUG] Broadcasting message: {formatted_message}")  # Debugging
+           # print(f"[DEBUG] Broadcasting message: {formatted_message}")  # Debugging
 
             for client in self.clients:
                 if client != sender_address:  # Broadcast to all other clients
