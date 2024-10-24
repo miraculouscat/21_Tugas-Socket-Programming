@@ -13,7 +13,17 @@ class ChatClient:
 
     def start(self):
         print("[INIT] Connected to server", self.server_address)
+        self.load_chat_history()  # Load and display previous messages
         self.authenticate()
+
+    def load_chat_history(self):
+        try:
+            with open('chat_history.txt', 'r') as file:
+                lines = file.readlines()
+                for line in lines:
+                    print(f"[CHAT HISTORY] {line.strip()}")  # Print past messages
+        except FileNotFoundError:
+            print("[INFO] No chat history found.")
 
     def authenticate(self):
         valid_command = False
@@ -71,7 +81,6 @@ class ChatClient:
                 print("Invalid choice. Please enter 'r', 'l', or 'e'.")
 
     def start_chat(self):
-        # print("[DEBUG] Starting chat")
         # Start a thread to listen for incoming messages
         threading.Thread(target=self.receive_messages, daemon=True).start()
 
@@ -79,7 +88,6 @@ class ChatClient:
         self.chat_loop()
 
     def chat_loop(self):
-        # print("[DEBUG] Entering chat loop")  # Debugging
         print("You can start chatting now! Type your message:")
 
         while True:
@@ -94,12 +102,10 @@ class ChatClient:
             except Exception as e:
                 print(f"[ERROR] Issue with input or message sending: {e}")
 
-
     def send_message(self, message):
         try:
             encrypted_message = self.encryption_helper.encrypt(message)
             self.client_socket.sendto(encrypted_message.encode('utf-8'), self.server_address)
-            # print(f"[DEBUG] Sent encrypted message: {encrypted_message}")
         except Exception as e:
             print(f"[ERROR] Failed to send message: {e}")
 
@@ -119,7 +125,7 @@ class ChatClient:
                     print("[CHAT INPUT] Type a message: ", end="", flush=True)
             except Exception as e:
                 print(f"Error receiving message: {e}")
-                
+
     def save_to_history(self, message):
         try:
             with open('chat_history.txt', 'a') as file:

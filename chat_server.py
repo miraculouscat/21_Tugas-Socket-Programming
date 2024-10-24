@@ -17,7 +17,7 @@ class ChatServer:
             message, client_address = self.server_socket.recvfrom(1024)
             threading.Thread(target=self.handle_client, args=(message, client_address)).start()
 
-   def handle_client(self, message, client_address):
+    def handle_client(self, message, client_address):
         decrypted_message = self.encryption_helper.decrypt(message.decode('utf-8'))
         print(f"[RECEIVED] {decrypted_message} from {client_address}")
 

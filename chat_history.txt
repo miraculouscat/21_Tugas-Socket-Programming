@@ -23,3 +23,14 @@ Me: hai
 Other: ccc: hai
 Me: halo
 Other: cc: halo
+Me: halo
+Other: You need to login or register first.
+Me: hai
+Other: You need to login or register first.
+Me: lol
+Other: You need to login or register first.
+Me: halo
+Me: hai
+Other: ccc: hai
+Me: yey
+Other: cc: yey
