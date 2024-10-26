@@ -11,11 +11,17 @@ class ChatServer:
         self.auth_manager = AuthManager()
         self.encryption_helper = EncryptionHelper(shift=3)  # Ensure shift is consistent with client
         print(f"[SERVER] Listening on {ip}:{port}")
-
+        
     def start(self):
         while True:
-            message, client_address = self.server_socket.recvfrom(1024)
-            threading.Thread(target=self.handle_client, args=(message, client_address)).start()
+            try:
+                message, client_address = self.server_socket.recvfrom(1024)
+                threading.Thread(target=self.handle_client, args=(message, client_address)).start()
+            except ConnectionResetError:
+                print(f"[ERROR] Connection reset by {client_address}")
+            except Exception as e:
+                print(f"[ERROR] An error occurred: {e}")
+
 
     def handle_client(self, message, client_address):
         decrypted_message = self.encryption_helper.decrypt(message.decode('utf-8'))
@@ -30,10 +36,10 @@ class ChatServer:
             # Check if the client is logged in
             if client_address in self.clients:
                 self.broadcast_message(decrypted_message, client_address)
-            else:
-                # Only send the login/register error if the client is trying to send a message
-                error_message = "You need to login or register first."
-                self.send_encrypted_message(error_message, client_address)
+            # else:
+            #     # Only send the login/register error if the client is trying to send a message
+            #     error_message = "You need to login or register first."
+            #     self.send_encrypted_message(error_message, client_address)
 
     def register_client(self, command, client_address):
         try:

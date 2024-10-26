@@ -10,20 +10,12 @@ class ChatClient:
         self.server_address = (server_ip, server_port)
         self.encryption_helper = EncryptionHelper(shift=3)
         self.auth_manager = AuthManager()
+        self.username = None
+        self.running = True
 
     def start(self):
         print("[INIT] Connected to server", self.server_address)
-        self.load_chat_history()  # Load and display previous messages
         self.authenticate()
-
-    def load_chat_history(self):
-        try:
-            with open('chat_history.txt', 'r') as file:
-                lines = file.readlines()
-                for line in lines:
-                    print(f"[CHAT HISTORY] {line.strip()}")  # Print past messages
-        except FileNotFoundError:
-            print("[INFO] No chat history found.")
 
     def authenticate(self):
         valid_command = False
@@ -34,30 +26,31 @@ class ChatClient:
                 password = input("Enter password: ")
                 full_command = f"/register {username} {password}"
                 self.send_message(full_command)
+                self.username = username
                 valid_command = True
             elif command.startswith("/login"):
                 username = input("Enter username: ")
                 password = input("Enter password: ")
                 full_command = f"/login {username} {password}"
                 self.send_message(full_command)
+                self.username = username
                 valid_command = True
             else:
                 print("Invalid command. Please use /register or /login.")
             
-            # Listen for response from the server (registration confirmation or error)
             self.listen_for_auth_response()
 
     def listen_for_auth_response(self):
         try:
             message, _ = self.client_socket.recvfrom(1024)
             decrypted_message = self.encryption_helper.decrypt(message.decode('utf-8'))
+            
+            print("\n")
             print(f"[AUTH RESPONSE] {decrypted_message}")
 
-            if "welcome" in decrypted_message.lower():
-                self.start_chat()  # Start chat after successful login
-            elif "registration successful" in decrypted_message.lower():
-                print("Registration completed.")
-                self.start_chat()  # Call start_chat after registration
+            if "welcome" in decrypted_message.lower() or "registration successful" in decrypted_message.lower():
+                print("Login or Registration successful.")
+                self.start_chat()  # Start chat after successful authentication
             else:
                 self.handle_auth_failure()  # Handle failed registration or login
         except Exception as e:
@@ -65,7 +58,7 @@ class ChatClient:
 
     def handle_auth_failure(self):
         print("Authentication failed.")
-        while True:
+        while self.running:
             choice = input("Do you want to (r)egister again, (l)ogin, or (e)xit?: ").lower()
             if choice == 'r':
                 self.authenticate()  # Retry registration or login
@@ -75,7 +68,7 @@ class ChatClient:
                 break
             elif choice == 'e':
                 print("Exiting.")
-                self.client_socket.close()
+                self.close()
                 break
             else:
                 print("Invalid choice. Please enter 'r', 'l', or 'e'.")
@@ -88,17 +81,18 @@ class ChatClient:
         self.chat_loop()
 
     def chat_loop(self):
-        print("You can start chatting now! Type your message:")
+        self.load_chat_history()
+        # print("You can start chatting now! Type your message:")
 
-        while True:
+        while self.running:
             try:
                 message = input("[CHAT INPUT] Type a message: ")
                 if message.lower() == "exit":
                     print("Exiting chat.")
-                    self.client_socket.close()
+                    self.running = False  # Signal to stop the thread
                     break
                 self.send_message(message)
-                self.save_to_history(f"Me: {message}")  # Save sent message to chat history
+                self.save_to_history(f"{self.username}: {message}")  # Save sent message to chat history
             except Exception as e:
                 print(f"[ERROR] Issue with input or message sending: {e}")
 
@@ -110,7 +104,7 @@ class ChatClient:
             print(f"[ERROR] Failed to send message: {e}")
 
     def receive_messages(self):
-        while True:
+        while self.running:
             try:
                 message, _ = self.client_socket.recvfrom(1024)
                 if message:
@@ -119,12 +113,13 @@ class ChatClient:
                     
                     # Print the received message without interfering with the chat input
                     print(f"\n[NEW MESSAGE] {decrypted_message}")
-                    self.save_to_history(f"Other: {decrypted_message}")  # Save received message to chat history
 
                     # Reprint the chat input prompt after the message is received
                     print("[CHAT INPUT] Type a message: ", end="", flush=True)
             except Exception as e:
-                print(f"Error receiving message: {e}")
+                if self.running:  # Only print errors if we're still running
+                    print(f"Error receiving message: {e}")
+                break  # Exit loop if an error occurs and we're shutting down
 
     def save_to_history(self, message):
         try:
@@ -132,3 +127,18 @@ class ChatClient:
                 file.write(message + '\n')
         except Exception as e:
             print(f"[ERROR] Failed to save message to chat history: {e}")
+            
+    def load_chat_history(self):
+        try:
+            with open('chat_history.txt', 'r') as file:
+                lines = file.readlines()
+                print("\n")
+                for line in lines:
+                    print(f"[CHAT HISTORY] {line.strip()}")  # Print past messages
+                print("\n")
+        except FileNotFoundError:
+            print("[INFO] No chat history found.")
+            
+    def close(self):
+        self.running = False  # Signal all threads to stop
+        self.client_socket.close()  # Close the socket
