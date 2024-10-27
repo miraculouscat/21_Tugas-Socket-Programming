@@ -121,6 +121,8 @@ class ChatClient:
                     print(f"Error receiving message: {e}")
                 break  # Exit loop if an error occurs and we're shutting down
 
+
+
     def save_to_history(self, message):
         try:
             with open('chat_history.txt', 'a') as file:

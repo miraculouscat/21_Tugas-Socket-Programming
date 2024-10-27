@@ -67,13 +67,13 @@ class ChatServer:
 
 
     def broadcast_message(self, message, sender_address):
-            sender_username = self.clients[sender_address]
-            formatted_message = f"{sender_username}: {message}"
-           # print(f"[DEBUG] Broadcasting message: {formatted_message}")  # Debugging
+        sender_username = self.clients[sender_address]
+        formatted_message = f"{sender_username}: {message}"
+        
+        for client in self.clients:
+            if client != sender_address:  # Broadcast to all other clients
+                self.send_encrypted_message(formatted_message, client)
 
-            for client in self.clients:
-                if client != sender_address:  # Broadcast to all other clients
-                    self.send_encrypted_message(formatted_message, client)
 
     def send_encrypted_message(self, message, client_address):
         encrypted_message = self.encryption_helper.encrypt(message)
