@@ -4,15 +4,15 @@ from encryption_helper import EncryptionHelper
 from auth import AuthManager
 
 class ChatClient:
-    def __init__(self, server_ip, server_port):
+    def __init__(self, server_ip, server_port, local_ip="0.0.0.0", local_port=0):
         # Create the TCP socket
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client_socket.bind((local_ip, local_port))
 
         self.server_address = (server_ip, server_port)
         
         # Predefined encryption key for client-to-client encryption
         self.encryption_helper = EncryptionHelper(key='KEY')  # Use a string key for encryption
-
         self.auth_manager = AuthManager()
 
     def start(self):
