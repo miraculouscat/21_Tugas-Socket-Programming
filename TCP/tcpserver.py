@@ -7,7 +7,7 @@ class ChatServer:
     def __init__(self, ip='0.0.0.0', port=12345):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((ip, port))
-        self.server_socket.listen(5)  # Listen for up to 5 connections
+        self.server_socket.listen()  
         self.clients = {}  # {client_address: (socket, username)}
         self.chatrooms = {}  # {chatroom_name: {client_address: username}}
         self.auth_manager = AuthManager()
