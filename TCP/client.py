@@ -1,4 +1,4 @@
-from chat_client import ChatClient
+from tcpclient import ChatClient
 
 def main():
     server_ip = input("Enter server IP (default 127.0.0.1): ") or "127.0.0.1"

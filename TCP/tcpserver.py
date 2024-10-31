@@ -11,7 +11,7 @@ class ChatServer:
         self.clients = {}  # {client_address: (socket, username)}
         self.chatrooms = {}  # {chatroom_name: {client_address: username}}
         self.auth_manager = AuthManager()
-        self.encryption_helper = EncryptionHelper(shift=3)
+        self.encryption_helper = EncryptionHelper(key='KEY')  # Initialize with a key for encryption
         print(f"[SERVER] Listening on {ip}:{port}")
 
     def start(self):
@@ -21,7 +21,7 @@ class ChatServer:
                 print(f"[NEW CONNECTION] Connected with {client_address}")
                 threading.Thread(target=self.handle_client, args=(client_socket, client_address)).start()
             except Exception as e:
-                print(f"[ERROR] An error occurred: {e}")
+                print(f"[ERROR] An error occurred while accepting connections: {e}")
 
     def handle_client(self, client_socket, client_address):
         try:
@@ -55,7 +55,7 @@ class ChatServer:
         except ConnectionResetError:
             self.disconnect_client(client_socket, client_address)
         except Exception as e:
-            print(f"[ERROR] An error occurred: {e}")
+            print(f"[ERROR] An error occurred while handling client {client_address}: {e}")
             self.disconnect_client(client_socket, client_address)
 
     def register_client(self, command, client_socket):
@@ -90,12 +90,10 @@ class ChatServer:
             self.send_encrypted_message(error_message, client_socket)
             return
 
-        client_socket, username = self.clients[client_address]
-
         # Add client to the specified chatroom
         if chatroom_name not in self.chatrooms:
             self.chatrooms[chatroom_name] = {}
-        self.chatrooms[chatroom_name][client_address] = username
+        self.chatrooms[chatroom_name][client_address] = self.clients[client_address][1]
 
         confirmation_message = f"You joined the chatroom '{chatroom_name}'."
         self.send_encrypted_message(confirmation_message, client_socket)
@@ -109,8 +107,6 @@ class ChatServer:
             self.send_encrypted_message(error_message, client_socket)
             return
 
-        client_socket, username = self.clients[client_address]
-
         if chatroom_name in self.chatrooms and client_address in self.chatrooms[chatroom_name]:
             del self.chatrooms[chatroom_name][client_address]
             leave_message = f"You left the chatroom '{chatroom_name}'."
@@ -120,7 +116,7 @@ class ChatServer:
             self.send_encrypted_message(error_message, client_socket)
 
     def list_chatrooms(self, client_socket):
-        chatroom_list = "Available chatrooms:\n" + "\n".join(self.chatrooms.keys())
+        chatroom_list = "Available chatrooms:\n" + "\n".join(self.chatrooms.keys()) if self.chatrooms else "No chatrooms available."
         self.send_encrypted_message(chatroom_list, client_socket)
 
     def broadcast_message(self, message, sender_address):
@@ -143,6 +139,9 @@ class ChatServer:
             username = self.clients[client_address][1]
             del self.clients[client_address]
             print(f"[DISCONNECTED] {username} at {client_address} disconnected.")
-            for chatroom_name, members in self.chatrooms.items():
-                members.pop(client_address, None)
+            # Remove client from all chatrooms
+            for chatroom_name in list(self.chatrooms.keys()):
+                self.chatrooms[chatroom_name].pop(client_address, None)
+                if not self.chatrooms[chatroom_name]:  # If no members, remove chatroom
+                    del self.chatrooms[chatroom_name]
         client_socket.close()
