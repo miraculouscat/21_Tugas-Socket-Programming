@@ -26,26 +26,36 @@ class ChatServer:
 
 
     def handle_client(self, message, client_address):
-        try:
-            decrypted_message = self.encryption_helper.decrypt(message.decode('utf-8'))
-            print(f"[RECEIVED] {decrypted_message} from {client_address}")
+            try:
+                # Log the raw (encrypted) message received from the client
+                raw_message = message.decode('utf-8')
 
-    
-            if decrypted_message.startswith("/register"):
-                self.register_client(decrypted_message, client_address)
-            elif decrypted_message.startswith("/login"):
-                self.login_client(decrypted_message, client_address)
-            elif decrypted_message.startswith("/join"):
-                self.join_chatroom(decrypted_message, client_address)
-            else:
-      
-                if client_address in self.clients:
-                    self.broadcast_message(decrypted_message, client_address)
+                # Attempt to decrypt the message for command processing
+                decrypted_message = self.encryption_helper.decrypt(raw_message)
+
+                # Check if the message is a command
+                if decrypted_message.startswith("/register"):
+                    print(f"[RECEIVED] {decrypted_message} from {client_address}")
+                    self.register_client(decrypted_message, client_address)
+                elif decrypted_message.startswith("/login"):
+                    print(f"[RECEIVED] {decrypted_message} from {client_address}")
+                    self.login_client(decrypted_message, client_address)
+                elif decrypted_message.startswith("/join"):
+                    print(f"[RECEIVED] {decrypted_message} from {client_address}")
+                    self.join_chatroom(decrypted_message, client_address)
                 else:
-                    error_message = "You need to login or register first."
-                    self.send_encrypted_message(error_message, client_address)
-        except Exception as e:
-            print(f"[ERROR] Failed to handle client message: {e}")
+                    # If the message is not a command, it is treated as a chat message
+                    if client_address in self.clients:
+                        print(f"[CHAT MESSAGE] {raw_message} from {client_address}")  # Log chat messages
+                        self.broadcast_message(decrypted_message, client_address)
+                    else:
+                        error_message = "You need to login or register first."
+                        self.send_encrypted_message(error_message, client_address)
+            except Exception as e:
+                print(f"[ERROR] Failed to handle client message: {e}")
+
+
+
 
     def join_chatroom(self, command, client_address):
         try:
@@ -104,7 +114,7 @@ class ChatServer:
         formatted_message = f"{sender_username}: {message}"
         
         for client in self.clients:
-            if client != sender_address:
+            if client != sender_address: 
                 self.send_encrypted_message(formatted_message, client)
 
 
