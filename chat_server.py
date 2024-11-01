@@ -27,13 +27,10 @@ class ChatServer:
 
     def handle_client(self, message, client_address):
             try:
-                # Log the raw (encrypted) message received from the client
-                raw_message = message.decode('utf-8')
 
-                # Attempt to decrypt the message for command processing
+                raw_message = message.decode('utf-8')
                 decrypted_message = self.encryption_helper.decrypt(raw_message)
 
-                # Check if the message is a command
                 if decrypted_message.startswith("/register"):
                     print(f"[RECEIVED] {decrypted_message} from {client_address}")
                     self.register_client(decrypted_message, client_address)
@@ -44,7 +41,7 @@ class ChatServer:
                     print(f"[RECEIVED] {decrypted_message} from {client_address}")
                     self.join_chatroom(decrypted_message, client_address)
                 else:
-                    # If the message is not a command, it is treated as a chat message
+          
                     if client_address in self.clients:
                         print(f"[CHAT MESSAGE] {raw_message} from {client_address}")  # Log chat messages
                         self.broadcast_message(decrypted_message, client_address)
