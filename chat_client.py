@@ -28,33 +28,52 @@ class ChatClient:
                 self.send_message(full_command)
                 self.username = username
                 valid_command = True
+                self.listen_for_auth_response()
+                
+                login_choice = input("Do you want to login now? (y/n): ").strip().lower()
+                if login_choice == 'y':
+                    self.login()  
+                else:
+                    print("You can log in later by using the /login command.")
+
             elif command.startswith("/login"):
-                username = input("Enter username: ")
-                password = input("Enter password: ")
-                full_command = f"/login {username} {password}"
-                self.send_message(full_command)
-                self.username = username
+                self.login()  # Call the login method directly
                 valid_command = True
             else:
                 print("Invalid command. Please use /register or /login.")
-            
-            self.listen_for_auth_response()
+
+    def login(self):
+        username = input("Enter username: ")
+        password = input("Enter password: ")
+        full_command = f"/login {username} {password}"
+        self.send_message(full_command)
+        self.listen_for_auth_response()  # Listen for the response after sending the login command
+
+    def join_chatroom(self):
+        while True:
+            chatroom = input("Enter chatroom name to join (or type 'exit' to leave): ")
+            if chatroom.lower() == "exit":
+                self.close()
+                return
+            join_command = f"/join {chatroom}"
+            self.send_message(join_command)
+            self.listen_for_join_response()  # Listen for response after sending join command
+            break  # Exit the loop after sending the join command
 
     def listen_for_auth_response(self):
         try:
             message, _ = self.client_socket.recvfrom(1024)
             decrypted_message = self.encryption_helper.decrypt(message.decode('utf-8'))
-            
-            print("\n")
             print(f"[AUTH RESPONSE] {decrypted_message}")
 
             if "welcome" in decrypted_message.lower() or "registration successful" in decrypted_message.lower():
-                print("Login or Registration successful.")
-                self.start_chat()  # Start chat after successful authentication
+                print("Registration successful.")
+                self.join_chatroom()
             else:
                 self.handle_auth_failure()  # Handle failed registration or login
         except Exception as e:
             print(f"Error receiving authentication response: {e}")
+
 
     def handle_auth_failure(self):
         print("Authentication failed.")
@@ -64,7 +83,7 @@ class ChatClient:
                 self.authenticate()  # Retry registration or login
                 break
             elif choice == 'l':
-                self.authenticate()  # Switch to login
+                self.login()  # Directly call login
                 break
             elif choice == 'e':
                 print("Exiting.")
@@ -73,17 +92,63 @@ class ChatClient:
             else:
                 print("Invalid choice. Please enter 'r', 'l', or 'e'.")
 
-    def start_chat(self):
-        # Start a thread to listen for incoming messages
-        threading.Thread(target=self.receive_messages, daemon=True).start()
+    def join_chatroom(self):
+        predefined_chatroom = "default_chatroom"  # You can set this to whatever the chatroom name should be
 
-        # Enter the chat loop to send messages
+        while True:
+            # Prompt for the password
+            password = input("Enter password to join or type 'exit' to leave (default: 333): ")
+            
+            # Allow exit from the chatroom
+            if password.lower() == "exit":
+                self.close()
+                return
+            
+            # Check if the password is correct
+            if password == "333":
+                join_command = f"/join {predefined_chatroom}"  # Join the predefined chatroom
+                self.send_message(join_command)
+                self.listen_for_join_response()  # Listen for response after sending join command
+                break  # Exit the loop after sending the join command
+            else:
+                print("Incorrect password. Please try again.")
+
+
+
+    def listen_for_join_response(self):
+        try:
+            message, _ = self.client_socket.recvfrom(1024)
+            decrypted_message = self.encryption_helper.decrypt(message.decode('utf-8'))
+            print(f"[JOIN RESPONSE] {decrypted_message}")
+
+            if "successfully joined" in decrypted_message.lower():
+                    print("You have joined the chatroom successfully.")
+                    self.start_chat()  # Start chat after successfully joining
+            else:
+                    print("Failed to join chatroom.")
+                    # Offer the user a chance to register or login
+                    self.handle_login_registration_choice()
+        except Exception as e:
+                print(f"Error receiving join response: {e}")
+
+    def handle_login_registration_choice(self):
+        while True:
+            choice = input("You must login first to join a chatroom. Enter command (/register or /login): ").strip().lower()
+            if choice.startswith("/register"):
+                self.authenticate()  # Call the authenticate method which handles registration
+                break
+            elif choice.startswith("/login"):
+                self.login()  # Call the login method directly
+                break
+            else:
+                print("Invalid command. Please use /register or /login.")
+
+
+    def start_chat(self):
+        threading.Thread(target=self.receive_messages, daemon=True).start()
         self.chat_loop()
 
     def chat_loop(self):
-        self.load_chat_history()
-        # print("You can start chatting now! Type your message:")
-
         while self.running:
             try:
                 message = input("[CHAT INPUT] Type a message: ")
@@ -92,7 +157,6 @@ class ChatClient:
                     self.running = False  # Signal to stop the thread
                     break
                 self.send_message(message)
-                self.save_to_history(f"{self.username}: {message}")  # Save sent message to chat history
             except Exception as e:
                 print(f"[ERROR] Issue with input or message sending: {e}")
 
@@ -108,20 +172,13 @@ class ChatClient:
             try:
                 message, _ = self.client_socket.recvfrom(1024)
                 if message:
-                    encrypted_message = message.decode('utf-8')
-                    decrypted_message = self.encryption_helper.decrypt(encrypted_message)
-                    
-                    # Print the received message without interfering with the chat input
+                    decrypted_message = self.encryption_helper.decrypt(message.decode('utf-8'))
                     print(f"\n[NEW MESSAGE] {decrypted_message}")
-
-                    # Reprint the chat input prompt after the message is received
                     print("[CHAT INPUT] Type a message: ", end="", flush=True)
             except Exception as e:
                 if self.running:  # Only print errors if we're still running
-                    print(f"Error receiving message: {e}")
-                break  # Exit loop if an error occurs and we're shutting down
-
-
+                    print(f"[ERROR] Error receiving message: {e}")
+                break
 
     def save_to_history(self, message):
         try:
@@ -136,7 +193,7 @@ class ChatClient:
                 lines = file.readlines()
                 print("\n")
                 for line in lines:
-                    print(f"[CHAT HISTORY] {line.strip()}")  # Print past messages
+                    print(f"[CHAT HISTORY] {line.strip()}")
                 print("\n")
         except FileNotFoundError:
             print("[INFO] No chat history found.")
@@ -144,3 +201,4 @@ class ChatClient:
     def close(self):
         self.running = False  # Signal all threads to stop
         self.client_socket.close()  # Close the socket
+        print("[INFO] Connection closed.")
