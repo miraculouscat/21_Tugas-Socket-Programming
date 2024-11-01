@@ -1,70 +1,83 @@
 import socket
 import threading
 from encryption_helper import EncryptionHelper
-from auth import AuthManager
 
-class ChatClient:
-    def __init__(self, server_ip, server_port):
-        # Create the TCP socket
-        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        self.server_address = (server_ip, server_port)
-        
-        # Predefined encryption key for client-to-client encryption
-        self.encryption_helper = EncryptionHelper(key='KEY')  # Use a string key for encryption
-
-        self.auth_manager = AuthManager()
-
-    def start(self):
-        # Connect to the server
-        try:
-            self.client_socket.connect(self.server_address)
-            print("[INIT] Connected to server", self.server_address)
-            threading.Thread(target=self.receive_messages, daemon=True).start()
-            self.authenticate()
-        except Exception as e:
-            print(f"[ERROR] Unable to connect to server: {e}")
-
-    def authenticate(self):
-        valid_command = False
-        while not valid_command:
-            command = input("Enter command (/register or /login): ")
-            if command.startswith("/register"):
-                username = input("Enter username: ")
-                password = input("Enter password: ")
-                full_command = f"/register {username} {password}"
-                self.send_message(full_command)
-                valid_command = True  # Command sent successfully
-
-            elif command.startswith("/login"):
-                username = input("Enter username: ")
-                password = input("Enter password: ")
-                full_command = f"/login {username} {password}"
-                self.send_message(full_command)
-                valid_command = True  # Command sent successfully
-
-            else:
-                print("Invalid command. Please use /register or /login.")
-
-    def send_message(self, message):
-        # Encrypt the message for client-to-server communication
-        encrypted_message = self.encryption_helper.encrypt(message)
-        self.client_socket.send(encrypted_message.encode('utf-8'))
-
+class TCPClient:
+    def __init__(self, host='127.0.0.1', port=12345):
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client.connect((host, port))
+        self.encryption_helper = EncryptionHelper()
+    
     def receive_messages(self):
+        """Receive and decrypt messages from the server."""
         while True:
             try:
-                message = self.client_socket.recv(1024).decode('utf-8')
+                message = self.client.recv(1024).decode('ascii')
                 if message:
-                    decrypted_message = self.encryption_helper.decrypt(message)
-                    print(f"\n[NEW MESSAGE] {decrypted_message}")
+                    if message.startswith("Welcome") or message.startswith("Enter"):
+                        print(message)
+                    else:
+                        decrypted_message = self.encryption_helper.decrypt(message)
+                        print(decrypted_message)
                 else:
-                    print("[ERROR] Server closed the connection.")
+                    print("Disconnected from the server.")
                     break
             except Exception as e:
-                print(f"[ERROR] An error occurred while receiving messages: {e}")
+                print(f"Error receiving message: {e}")
                 break
 
-    def close(self):
-        self.client_socket.close()
-        print("[INFO] Connection closed.")
+    def send_message(self):
+        """Send encrypted messages to the server."""
+        while True:
+            message = input("")
+            encrypted_message = self.encryption_helper.encrypt(message)
+            self.client.send(encrypted_message.encode('ascii'))
+
+    def authenticate_and_join(self):
+        """Handle authentication, registration, and room joining."""
+        try:
+            action = input("Do you want to (R)egister or (L)ogin? ").strip().upper()
+            self.client.send(action.encode('ascii'))
+
+            if action == 'R':
+                print(self.client.recv(1024).decode('ascii'))
+                username = input("Enter a new username: ")
+                self.client.send(username.encode('ascii'))
+
+                print(self.client.recv(1024).decode('ascii'))
+                password = input("Enter a new password: ")
+                self.client.send(password.encode('ascii'))
+
+                print(self.client.recv(1024).decode('ascii'))
+
+            print(self.client.recv(1024).decode('ascii'))
+            username = input("Enter your username: ")
+            self.client.send(username.encode('ascii'))
+
+            print(self.client.recv(1024).decode('ascii'))
+            password = input("Enter your password: ")
+            self.client.send(password.encode('ascii'))
+
+            print(self.client.recv(1024).decode('ascii'))
+            room = input("Enter room name: ")
+            self.client.send(room.encode('ascii'))
+
+            print(self.client.recv(1024).decode('ascii'))
+            room_password = input("Enter room password: ")
+            self.client.send(room_password.encode('ascii'))
+
+            welcome_message = self.client.recv(1024).decode('ascii')
+            print(welcome_message)
+            if welcome_message.startswith("Welcome"):
+                threading.Thread(target=self.receive_messages).start()
+                self.send_message()
+            else:
+                print("Authentication or room access denied.")
+                self.client.close()
+        except Exception as e:
+            print(f"Error during authentication: {e}")
+            self.client.close()
+
+if __name__ == "__main__":
+    client = TCPClient()
+    client.authenticate_and_join()
