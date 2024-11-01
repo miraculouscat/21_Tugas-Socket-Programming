@@ -7,8 +7,8 @@ class ChatServer:
     def __init__(self, ip='0.0.0.0', port=12345):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_socket.bind((ip, port))
-        self.clients = {}  # Dictionary to store client address and usernames
-        self.chatrooms = {}  # Initialize this to manage chatrooms
+        self.clients = {}  
+        self.chatrooms = {}  
         self.auth_manager = AuthManager()
         self.encryption_helper = EncryptionHelper(shift=3)
         print(f"[SERVER] Listening on {ip}:{port}")
@@ -30,7 +30,7 @@ class ChatServer:
             decrypted_message = self.encryption_helper.decrypt(message.decode('utf-8'))
             print(f"[RECEIVED] {decrypted_message} from {client_address}")
 
-            # Check if the client is registered
+    
             if decrypted_message.startswith("/register"):
                 self.register_client(decrypted_message, client_address)
             elif decrypted_message.startswith("/login"):
@@ -38,7 +38,7 @@ class ChatServer:
             elif decrypted_message.startswith("/join"):
                 self.join_chatroom(decrypted_message, client_address)
             else:
-                # Check if the client is logged in
+      
                 if client_address in self.clients:
                     self.broadcast_message(decrypted_message, client_address)
                 else:
@@ -54,11 +54,10 @@ class ChatServer:
                 self.send_encrypted_message("You must login to join a chatroom.", client_address)
                 return
 
-            # Initialize the chatroom if it doesn't exist
+      
             if chatroom_name not in self.chatrooms:
-                self.chatrooms[chatroom_name] = []  # Create an empty list for clients in this chatroom
+                self.chatrooms[chatroom_name] = [] 
             
-            # Add the client to the chatroom
             if client_address not in self.chatrooms[chatroom_name]:
                 self.chatrooms[chatroom_name].append(client_address)
                 self.send_encrypted_message(f"You have successfully joined the chatroom: {chatroom_name}", client_address)
@@ -73,7 +72,7 @@ class ChatServer:
     def register_client(self, command, client_address):
         try:
             _, username, password = command.split()
-            if username in self.clients.values():  # Check if username already exists
+            if username in self.clients.values():  
                 error_message = "Username already taken. Please try another."
                 self.send_encrypted_message(error_message, client_address)
                 return
@@ -89,7 +88,7 @@ class ChatServer:
             _, username, password = command.split()
             success, msg = self.auth_manager.login(username, password)
             if success:
-                self.clients[client_address] = username  # Store the client address and username
+                self.clients[client_address] = username  
                 welcome_message = f"WELCOME: Welcome, {username}! You are now connected."
                 self.send_encrypted_message(welcome_message, client_address)
             else:
@@ -105,7 +104,7 @@ class ChatServer:
         formatted_message = f"{sender_username}: {message}"
         
         for client in self.clients:
-            if client != sender_address:  # Broadcast to all other clients
+            if client != sender_address:
                 self.send_encrypted_message(formatted_message, client)
 
 

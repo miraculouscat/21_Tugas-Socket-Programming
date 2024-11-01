@@ -37,7 +37,7 @@ class ChatClient:
                     print("You can log in later by using the /login command.")
 
             elif command.startswith("/login"):
-                self.login()  # Call the login method directly
+                self.login()  
                 valid_command = True
             else:
                 print("Invalid command. Please use /register or /login.")
@@ -47,7 +47,7 @@ class ChatClient:
         password = input("Enter password: ")
         full_command = f"/login {username} {password}"
         self.send_message(full_command)
-        self.listen_for_auth_response()  # Listen for the response after sending the login command
+        self.listen_for_auth_response()  
 
     def join_chatroom(self):
         while True:
@@ -57,8 +57,8 @@ class ChatClient:
                 return
             join_command = f"/join {chatroom}"
             self.send_message(join_command)
-            self.listen_for_join_response()  # Listen for response after sending join command
-            break  # Exit the loop after sending the join command
+            self.listen_for_join_response()  
+            break  
 
     def listen_for_auth_response(self):
         try:
@@ -70,7 +70,7 @@ class ChatClient:
                 print("Registration successful.")
                 self.join_chatroom()
             else:
-                self.handle_auth_failure()  # Handle failed registration or login
+                self.handle_auth_failure()  
         except Exception as e:
             print(f"Error receiving authentication response: {e}")
 
@@ -80,10 +80,10 @@ class ChatClient:
         while self.running:
             choice = input("Do you want to (r)egister again, (l)ogin, or (e)xit?: ").lower()
             if choice == 'r':
-                self.authenticate()  # Retry registration or login
+                self.authenticate() 
                 break
             elif choice == 'l':
-                self.login()  # Directly call login
+                self.login() 
                 break
             elif choice == 'e':
                 print("Exiting.")
@@ -93,23 +93,23 @@ class ChatClient:
                 print("Invalid choice. Please enter 'r', 'l', or 'e'.")
 
     def join_chatroom(self):
-        predefined_chatroom = "default_chatroom"  # You can set this to whatever the chatroom name should be
+        predefined_chatroom = "default_chatroom" 
 
         while True:
-            # Prompt for the password
+            
             password = input("Enter password to join or type 'exit' to leave (default: 333): ")
             
-            # Allow exit from the chatroom
+        
             if password.lower() == "exit":
                 self.close()
                 return
             
-            # Check if the password is correct
+    
             if password == "333":
-                join_command = f"/join {predefined_chatroom}"  # Join the predefined chatroom
+                join_command = f"/join {predefined_chatroom}"  
                 self.send_message(join_command)
-                self.listen_for_join_response()  # Listen for response after sending join command
-                break  # Exit the loop after sending the join command
+                self.listen_for_join_response() 
+                break  
             else:
                 print("Incorrect password. Please try again.")
 
@@ -123,10 +123,10 @@ class ChatClient:
 
             if "successfully joined" in decrypted_message.lower():
                     print("You have joined the chatroom successfully.")
-                    self.start_chat()  # Start chat after successfully joining
+                    self.start_chat() 
             else:
                     print("Failed to join chatroom.")
-                    # Offer the user a chance to register or login
+                   
                     self.handle_login_registration_choice()
         except Exception as e:
                 print(f"Error receiving join response: {e}")
@@ -135,10 +135,10 @@ class ChatClient:
         while True:
             choice = input("You must login first to join a chatroom. Enter command (/register or /login): ").strip().lower()
             if choice.startswith("/register"):
-                self.authenticate()  # Call the authenticate method which handles registration
+                self.authenticate()  
                 break
             elif choice.startswith("/login"):
-                self.login()  # Call the login method directly
+                self.login()  
                 break
             else:
                 print("Invalid command. Please use /register or /login.")
@@ -154,7 +154,7 @@ class ChatClient:
                 message = input("[CHAT INPUT] Type a message: ")
                 if message.lower() == "exit":
                     print("Exiting chat.")
-                    self.running = False  # Signal to stop the thread
+                    self.running = False  
                     break
                 self.send_message(message)
             except Exception as e:
@@ -176,7 +176,7 @@ class ChatClient:
                     print(f"\n[NEW MESSAGE] {decrypted_message}")
                     print("[CHAT INPUT] Type a message: ", end="", flush=True)
             except Exception as e:
-                if self.running:  # Only print errors if we're still running
+                if self.running:  
                     print(f"[ERROR] Error receiving message: {e}")
                 break
 
@@ -199,6 +199,6 @@ class ChatClient:
             print("[INFO] No chat history found.")
             
     def close(self):
-        self.running = False  # Signal all threads to stop
-        self.client_socket.close()  # Close the socket
+        self.running = False  
+        self.client_socket.close()  
         print("[INFO] Connection closed.")
